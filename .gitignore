@@ -1,3 +1,4 @@
 /vendor/
 /.env
 output.log
+/completed.csv
