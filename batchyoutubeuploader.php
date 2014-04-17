@@ -117,7 +117,7 @@ foreach($csv_array as $videoInfo) {
 				$chunkSizeBytes
 				);
 			$filesize = filesize($videoPath);
-			$media->setFileSize(filesize($videoPath));
+			$media->setFileSize($filesize);
 
 			// Read the media file and upload it chunk by chunk.
 			$status = false;
@@ -125,7 +125,9 @@ foreach($csv_array as $videoInfo) {
 			while (!$status && !feof($handle)) {
 				$chunk = fread($handle, $chunkSizeBytes);
 				$status = $media->nextChunk($chunk); // @todo deal with exception
-				print($media->getProgress() . "\n");
+				$currentProgress = $media->getProgress();
+				$progressPercentage = ($currentProgress/$filesize) * 100;
+				print($progressPercentage . "%\n");
 			}
 
 			fclose($handle);
@@ -134,7 +136,7 @@ foreach($csv_array as $videoInfo) {
 			$client->setDefer(false);
 			print $videoInfo['title'] . " uploaded\n";
 			print "https://www.youtube.com/watch?v=" . $status->id . "\n";
-			$logData = $videoInfo['filename'] . ',' . $startTime . ',' . $status->status->uploadStatus . ',' . $status->id . ',' . time() . "\n";
+			$logData = $videoInfo['filename'] . ',' . $startTime . ',' . $status->status->uploadStatus . ',' . "https://www.youtube.com/watch?v={$status->id}" . ',' . time() . "\n";
 		} catch(Google_Exception $e) {
 			$exceptionMsg = "Google service Exception: " . $e->getCode() . "; message: "	.$e->getMessage();
 			print($exceptionMsg);
