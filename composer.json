@@ -1,0 +1,16 @@
+{
+    "name": "yossarian/batchyoutubeuploader",
+    "description": "Upload all the WSF YouTube videos",
+    "require": {
+        "google/apiclient": "dev-master",
+        "vlucas/phpdotenv": "1.0.*"
+    },
+    "license": "MINE",
+    "authors": [
+        {
+            "name": "mAAdhaTTah",
+            "email": "jamesorodig@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev"
+}
