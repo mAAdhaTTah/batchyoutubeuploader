@@ -12,6 +12,7 @@ $OAUTH2_CLIENT_ID = getenv('oauth2_client_id');
 $OAUTH2_CLIENT_SECRET = getenv('oauth2_client_secret');
 $OAUTH2_REDIRECT_URI = getenv('oauth2_redirect_uri');
 $videoDir = getenv('videodir');
+$logFile = 'output.log';
 
 // Set up the Google Client
 $SCOPES = array('https://www.googleapis.com/auth/youtube',
@@ -75,13 +76,14 @@ $csv_array = csv_to_array('videos.csv');
 foreach($csv_array as $videoInfo) {
 	$videoPath = $videoDir . '/' . $videoInfo['filename'];
 	if(empty($videoInfo['youtube_url']) && file_exists($videoPath)) {
-		$videoInfo['description'] = mb_convert_encoding($videoInfo['description'],"UTF-8","auto");
 		try {
+			$startTime = time();
 			// Create a snippet with title, description, tags and category ID
 			// Create an asset resource and set its snippet metadata and type.
+			print "Uploading {$videoInfo['title']}\n";
 			$snippet = new Google_Service_YouTube_VideoSnippet();
 			$snippet->setTitle($videoInfo['title']);
-			$snippet->setDescription($videoInfo['description']);
+			// $snippet->setDescription($videoInfo['description']);
 			$snippet->setCategoryId("28"); // @todo make this selectable in some way; 28 = Science & Technology
 
 			// Set the video's status to "unlisted".
@@ -114,18 +116,16 @@ foreach($csv_array as $videoInfo) {
 				true,
 				$chunkSizeBytes
 				);
+			$filesize = filesize($videoPath);
 			$media->setFileSize(filesize($videoPath));
-
 
 			// Read the media file and upload it chunk by chunk.
 			$status = false;
 			$handle = fopen($videoPath, "rb");
-			$i = 1;
 			while (!$status && !feof($handle)) {
 				$chunk = fread($handle, $chunkSizeBytes);
 				$status = $media->nextChunk($chunk); // @todo deal with exception
-				print("Chunk " . $i . " uploaded...\n");
-				$i++;
+				print($media->getProgress() . "\n");
 			}
 
 			fclose($handle);
@@ -134,9 +134,14 @@ foreach($csv_array as $videoInfo) {
 			$client->setDefer(false);
 			print $videoInfo['title'] . " uploaded\n";
 			print "https://www.youtube.com/watch?v=" . $status->id . "\n";
+			$logData = $videoInfo['filename'] . ',' . $startTime . ',' . $status->status->uploadStatus . ',' . $status->id . ',' . time() . "\n";
 		} catch(Google_Exception $e) {
-			print "Caught Google service Exception " . $e->getCode() . " message is "	.$e->getMessage() . "	stack trace is " . $e->getTraceAsString();
+			$exceptionMsg = "Google service Exception: " . $e->getCode() . "; message: "	.$e->getMessage();
+			print($exceptionMsg);
+			$logData = $videoInfo['filename'] . ',' . $startTime . ',' . $exceptionMsg . ',' . 'NA' . ',' . time() . "\n";
+			exit(print_r($media));
 		}
+		file_put_contents($logFile, $logData, FILE_APPEND | LOCK_EX);
 	}
 }
 
