@@ -3,7 +3,7 @@
         "This file locks the dependencies of your project to a known state",
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
     ],
-    "hash": "4560dc6266c17fb614e2c331a52790b7",
+    "hash": "fe505bc2808aa24ad601000b033df329",
     "packages": [
         {
             "name": "google/apiclient",
@@ -11,12 +11,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/google/google-api-php-client.git",
-                "reference": "042423bf73a8a819902399a4ad9a4f0402bb4011"
+                "reference": "9ee1980689c5447cdd761fdd3b88f01d62691c1c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/google/google-api-php-client/zipball/042423bf73a8a819902399a4ad9a4f0402bb4011",
-                "reference": "042423bf73a8a819902399a4ad9a4f0402bb4011",
+                "url": "https://api.github.com/repos/google/google-api-php-client/zipball/9ee1980689c5447cdd761fdd3b88f01d62691c1c",
+                "reference": "9ee1980689c5447cdd761fdd3b88f01d62691c1c",
                 "shasum": ""
             },
             "require": {
@@ -43,7 +43,7 @@
             "keywords": [
                 "google"
             ],
-            "time": "2014-04-16 06:14:17"
+            "time": "2014-04-19 06:16:50"
         },
         {
             "name": "vlucas/phpdotenv",
