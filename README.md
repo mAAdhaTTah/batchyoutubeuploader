@@ -1,4 +1,4 @@
-# YouTube Batch Uploader
+# Batch YouTube Uploader
 
 ToDo:
 

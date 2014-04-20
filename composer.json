@@ -12,5 +12,10 @@
             "email": "jamesorodig@gmail.com"
         }
     ],
-    "minimum-stability": "dev"
+    "minimum-stability": "dev",
+    "autoload": {
+        "classmap": [
+            "lib/"
+        ]
+    }
 }
