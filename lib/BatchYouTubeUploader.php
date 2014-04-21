@@ -104,10 +104,10 @@ class Batch_YouTube_Uploader {
 				$this->video->updateProgressBar();
 			} catch(Google_Exception $e) {
 				switch($e->getCode()) {
-					//case 503:
-						//$this->login();
-						//$this->video->status = $this->video->media->nextChunk($this->video->chunk);
-						//break;
+					case 401:
+						$this->login();
+						$this->video->status = $this->video->media->nextChunk($this->video->chunk);
+						break;
 					default:
 						$exceptionMsg = "Google Exception: " . $e->getCode() . "; message: "	. $e->getMessage() . "; stack trace: " . $e->getTraceAsString() . "\n";
 						print($exceptionMsg);
