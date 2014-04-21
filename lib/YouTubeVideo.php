@@ -62,7 +62,6 @@ class YouTubeVideo {
 		// Specify the size of each chunk of data, in bytes. Set a higher value for
 		// reliable connection as fewer chunks lead to faster uploads. Set a lower
 		// value for better recovery on less reliable connections.
-
 		$this->chunkSizeBytes = $this->setChuckSizeBytes();
 
 		// Create a request for the API's videos.insert method to create and upload the video.

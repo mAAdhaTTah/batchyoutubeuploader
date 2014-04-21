@@ -29,8 +29,10 @@ class Batch_YouTube_Uploader {
 		'https://www.googleapis.com/auth/youtube.upload',
 		'https://www.googleapis.com/auth/youtubepartner'
 		);
-		
+
 	var $video;
+	
+	var $error = false;
 
 	public function __construct($csv) {
 		$this->csv = $csv;
@@ -70,59 +72,48 @@ class Batch_YouTube_Uploader {
 		}
 	}
 
-	public function processVideo($videoInfo) {
+	public function processVideo($args) {
 		// Setting the defer flag to true tells the client to return a request which can be called
 		// with ->execute(); instead of making the API call immediately.
 		$this->client->setDefer(true);
-		$this->video = new YouTubeVideo($videoInfo, $this->client);
-		$this->upload();
+		$this->video = new YouTubeVideo($args, $this->client);
+
+		if(!file_exists($this->video->path)) {
+			$video->logMsg = $video->info['entry_id'] . ',' . '"' . $video->info['title'] . '"' . ',' . $video->info['filename'] . ',' . "File not found\n";
+		} elseif(!empty($this->video->youtube_url)) {
+			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . $this->video->info['youtube_url'] . "\n";
+		} else {
+			$startTime = time();
+			// Create a snippet with title, description, tags and category ID
+			// Create an asset resource and set its snippet metadata and type.
+			print "Uploading " . $this->video->info['title'] . "\n";
+	
+			// Read the media file and upload it chunk by chunk.
+			$this->video->handle = fopen($this->video->path, "rb");
+			$this->video->setUpProgressBar();
+			$this->upload();
+			fclose($this->video->handle);
+	
+			print $this->video->info['title'] . " uploaded\n";
+			print "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
+			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
+		}
+
 		// If you want to make other calls after the file upload, set setDefer back to false
 		$this->client->setDefer(false);
-		file_put_contents($this->logFile, $this->video->logMsg, FILE_APPEND | LOCK_EX);
+		$this->writeLog();
 	}
 
 	public function upload() {
-		if(!file_exists($this->video->path)) {
-			$video->logMsg = $video->info['entry_id'] . ',' . '"' . $video->info['title'] . '"' . ',' . $video->info['filename'] . ',' . "File not found\n";
-			return $video;
-		}
-		if(!empty($this->video->youtube_url)) {
-			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . $this->video->info['youtube_url'] . "\n";
-			return $this->video;
-		}
-		$startTime = time();
-		// Create a snippet with title, description, tags and category ID
-		// Create an asset resource and set its snippet metadata and type.
-		print "Uploading " . $this->video->info['title'] . "\n";
-
-		// Read the media file and upload it chunk by chunk.
-		$this->video->handle = fopen($this->video->path, "rb");
-		$this->video->setUpProgressBar();
 		while (!$this->video->status && !feof($this->video->handle)) {
 			try {
 				$this->video->uploadChunk();
 				$this->video->updateProgressBar();
-			} catch(Google_Exception $e) {
-				switch($e->getCode()) {
-					case 401:
-						$this->login();
-						$this->video->status = $this->video->media->nextChunk($this->video->chunk);
-						break;
-					default:
-						$exceptionMsg = "Google Exception: " . $e->getCode() . "; message: "	. $e->getMessage() . "; stack trace: " . $e->getTraceAsString() . "\n";
-						print($exceptionMsg);
-						$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
-						file_put_contents($this->logFile, $this->video->logMsg, FILE_APPEND | LOCK_EX);
-						exit();
-				}
+			} catch(Google_Exception $error) {
+				$this->error = $error;
+				$this->handleUploadError();
 			}
 		}
-
-		fclose($this->video->handle);
-
-		print $this->video->info['title'] . " uploaded\n";
-		print "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
-		$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
 	}
 
 	/**
@@ -147,6 +138,31 @@ class Batch_YouTube_Uploader {
 
 		$accessToken = $this->client->authenticate($authCode);
 		// @todo write token somewhere for future use?
+		// likely in $_SESSION
 		// @todo get access token that doesn't expire in only an hour
+	}
+	
+	public function writeLog() {
+		file_put_contents($this->logFile, $this->video->logMsg, FILE_APPEND | LOCK_EX);
+	}
+	
+	public function handleUploadError() {
+		switch($this->error->getCode()) {
+			// case 401:
+				// $this->login();
+				// maybe do something like this:
+				// $this->resumeUpload();
+				// $this->video->status = $this->video->media->nextChunk($this->video->chunk);
+				// break;
+			default:
+				$exceptionMsg = "Google Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\n";
+				print($exceptionMsg);
+				$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
+				$this->writeLog();
+				print_r($this->error->getErrors()[0]["reason"]);
+				print "\n";
+				$this->error = false;
+				exit();
+		}
 	}
 }
