@@ -94,7 +94,7 @@ class YouTubeVideo {
 	
 	public function uploadChunk() {
 		$this->chunk = fread($this->handle, $this->chunkSizeBytes);
-		$this->status = $this->media->nextChunk($this->chunk); // @todo deal with exception
+		$this->status = $this->media->nextChunk($this->chunk);
 	}
 	
 	public function setUpProgressBar() {
