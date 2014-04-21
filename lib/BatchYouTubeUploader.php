@@ -26,11 +26,6 @@ class Batch_YouTube_Uploader {
 	var $client;
 
 	/**
-	 * YouTube client
-	 */
-	var $youtube;
-
-	/**
 	 * YouTube scopes for authorization
 	 */
 	var $scopes = array(
@@ -102,91 +97,18 @@ class Batch_YouTube_Uploader {
 		$accessToken = $this->client->authenticate($authCode);
 		// @todo write token somewhere for future use?
 		// @todo get access token that doesn't expire in only an hour
-
-		$this->youtube = new Google_Service_YouTube($this->client);
 	}
 
 	public function process() {
 		foreach($this->csvArray as $videoInfo) {
-			$videoPath = $this->videoDir . '/' . $videoInfo['filename'];
-			if(!file_exists($videoPath)) {
-				$logData = $videoInfo['entry_id'] . ',' . '"' . $videoInfo['title'] . '"' . ',' . $videoInfo['filename'] . ',' . "File does not exist\n";
-				file_put_contents($this->logFile, $logData, FILE_APPEND | LOCK_EX);
-				continue;
-			}
-			if(!empty($videoInfo['youtube_url'])) {
-				$logData = $videoInfo['entry_id'] . ',' . '"' . $videoInfo['title'] . '"' . ',' . $videoInfo['filename'] . ',' . $videoInfo['youtube_url'] . "\n";
-				file_put_contents($this->logFile, $logData, FILE_APPEND | LOCK_EX);
-				continue;
-			}
-			try {
-				$startTime = time();
-				// Create a snippet with title, description, tags and category ID
-				// Create an asset resource and set its snippet metadata and type.
-				print "Uploading {$videoInfo['title']}\n";
-				$snippet = new Google_Service_YouTube_VideoSnippet();
-				$snippet->setTitle($videoInfo['title']);
-				// $snippet->setDescription($videoInfo['description']);
-				$snippet->setCategoryId("28"); // @todo make this selectable in some way; 28 = Science & Technology
-
-				// Set the video's status to "unlisted".
-				$status = new Google_Service_YouTube_VideoStatus();
-				$status->privacyStatus = "unlisted";
-
-				// Associate the snippet and status objects with a new video resource.
-				$video = new Google_Service_YouTube_Video();
-				$video->setSnippet($snippet);
-				$video->setStatus($status);
-
-				// Specify the size of each chunk of data, in bytes. Set a higher value for
-				// reliable connection as fewer chunks lead to faster uploads. Set a lower
-				// value for better recovery on less reliable connections.
-				// @todo How can we set the chuckSize more efficiently?
-				$chunkSizeBytes = 1 * 1024 * 1024;
-
-				// Setting the defer flag to true tells the client to return a request which can be called
-				// with ->execute(); instead of making the API call immediately.
-				$this->client->setDefer(true);
-
-				// Create a request for the API's videos.insert method to create and upload the video.
-				$insertRequest = $this->youtube->videos->insert("status,snippet", $video);
-
-				// Create a MediaFileUpload object for resumable uploads.
-				$media = new Google_Http_MediaFileUpload(
-					$this->client,
-					$insertRequest,
-					'video/*',
-					null,
-					true,
-					$chunkSizeBytes
-					);
-				$filesize = filesize($videoPath);
-				$media->setFileSize($filesize);
-
-				// Read the media file and upload it chunk by chunk.
-				$status = false;
-				$handle = fopen($videoPath, "rb");
-				while (!$status && !feof($handle)) {
-					$chunk = fread($handle, $chunkSizeBytes);
-					$status = $media->nextChunk($chunk); // @todo deal with exception
-					$currentProgress = $media->getProgress();
-					$progressPercentage = ($currentProgress/$filesize) * 100;
-					print($progressPercentage . "%\n");
-				}
-
-				fclose($handle);
-
-				// If you want to make other calls after the file upload, set setDefer back to false
-				$this->client->setDefer(false);
-				print $videoInfo['title'] . " uploaded\n";
-				print "https://www.youtube.com/watch?v=" . $status->id . "\n";
-				$logData = $videoInfo['entry_id'] . ',' . '"' . $videoInfo['title'] . '"' . ',' . $videoInfo['filename'] . ',' . "https://www.youtube.com/watch?v={$status->id}\n";
-				file_put_contents($logFile, $logData, FILE_APPEND | LOCK_EX);
-			} catch(Google_Exception $e) {
-				$exceptionMsg = "Google service Exception: " . $e->getCode() . "; message: "	. $e->getMessage();
-				print($exceptionMsg);
-				exit('Likely need to refresh the token');
-			}
+			// Setting the defer flag to true tells the client to return a request which can be called
+			// with ->execute(); instead of making the API call immediately.
+			$this->client->setDefer(true);
+			print("Begin uploading videos...\n");
+			$video = new YouTubeVideo($videoInfo, $this->client);
+			$video->upload();
+			$this->client->setDefer(false);
+			file_put_contents($this->logFile, $video->logMsg(), FILE_APPEND | LOCK_EX);
 		}
 	}
 }
