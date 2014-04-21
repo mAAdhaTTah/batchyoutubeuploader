@@ -1,18 +1,12 @@
 <?php
 
 class YouTubeVideo {
-
-	/**
-	 * Google client
-	 */
-	var $client;
-
 	/**
 	 * YouTube client
 	 */
 	var $youtube;
 
-	var $videoPath;
+	var $path;
 	
 	var $youtube_url = false;
 	
@@ -20,36 +14,43 @@ class YouTubeVideo {
 	
 	var $chunkSizeBytes;
 	
-	var $videoInfo;
+	var $info;
 	
 	var $media;
+	
+	var $status = false;
+	
+	var $handle;
+	
+	var $chunk;
+	
+	var $progressBar;
 
 	/**
 	 * __contruct function.
 	 *
 	 * @access public
-	 * @param array $videoArgs
+	 * @param array $args
 	 * @param obj $client Google Client
 	 * @param obj $youtube YouTube Client
 	 */
-	public function __construct($videoArgs, $client) {
-		$this->client = $client;
-		$this->youtube = new Google_Service_YouTube($this->client);
-		$this->videoPath = getenv('videodir') . '/' . $videoArgs['filename'];
+	public function __construct($args, $client) {
+		$this->youtube = new Google_Service_YouTube($client);
+		$this->path = getenv('videodir') . '/' . $args['filename'];
 		
 		$snippet = new Google_Service_YouTube_VideoSnippet();
-		if(isset($videoArgs['title'])) {
-			$snippet->setTitle($videoArgs['title']);
+		if(isset($args['title'])) {
+			$snippet->setTitle($args['title']);
 		}
-		if(isset($videoArgs['description'])) {
-		// $snippet->setDescription($videoInfo['description']);
+		if(isset($args['description'])) {
+		// $snippet->setDescription($videoArg['description']);
 		}
-		// if(isset($videoArgs['categoryID'])) {
+		// if(isset($args['categoryID'])) {
 			$snippet->setCategoryId("28"); // @todo make this selectable in some way; 28 = Science & Technology
 		// }
 		$status = new Google_Service_YouTube_VideoStatus();
-		if(isset($videoArgs['privacyStatus'])) {
-			$status->privacyStatus = $videoArgs['privacyStatus'];
+		if(isset($args['privacyStatus'])) {
+			$status->privacyStatus = $args['privacyStatus'];
 		} else {
 			$status->privacyStatus = "unlisted";
 		}
@@ -69,19 +70,20 @@ class YouTubeVideo {
 
 		// Create a MediaFileUpload object for resumable uploads.
 		$this->media = new Google_Http_MediaFileUpload(
-			$this->client,
+			$client,
 			$insertRequest,
 			'video/*',
 			null,
 			true,
 			$this->chunkSizeBytes
 			);
-		$this->filesize = filesize($this->videoPath);
+		$this->filesize = filesize($this->path);
+		$this->media->setFileSize($this->filesize);
 
-		if(isset($videoArgs['youtube_url'])) {
-			$this->youtube_url = $videoArgs['youtube_url'];
+		if(isset($args['youtube_url'])) {
+			$this->youtube_url = $args['youtube_url'];
 		}
-		$this->videoInfo = $videoArgs;
+		$this->info = $args;
 	}
 	
 	protected function setChuckSizeBytes() {
@@ -89,48 +91,18 @@ class YouTubeVideo {
 		// Is the optimum number calculable?
 		return 1 * 1024 * 1024;
 	}
-
-	public function upload() {
-		if(!file_exists($this->videoPath)) {
-			$this->logMsg = $this->videoInfo['entry_id'] . ',' . '"' . $this->videoInfo['title'] . '"' . ',' . $this->videoInfo['filename'] . ',' . "File does not exist\n";
-			return;
-		}
-		if(!empty($this->youtube_url)) {
-			$this->logMsg = $this->videoInfo['entry_id'] . ',' . '"' . $this->videoInfo['title'] . '"' . ',' . $this->videoInfo['filename'] . ',' . $this->videoInfo['youtube_url'] . "\n";
-			return;
-		}
-			$startTime = time();
-			// Create a snippet with title, description, tags and category ID
-			// Create an asset resource and set its snippet metadata and type.
-			print "Uploading " . $this->videoInfo['title'] . "\n";
-			$this->media->setFileSize($this->filesize);
-
-			// Read the media file and upload it chunk by chunk.
-			$status = false;
-			$handle = fopen($this->videoPath, "rb");
-			while (!$status && !feof($handle)) {
-				try {
-					$chunk = fread($handle, $this->chunkSizeBytes);
-					$status = $this->media->nextChunk($chunk); // @todo deal with exception
-					print((($this->media->getProgress()/$this->filesize) * 100) . "%\n");
-				} catch(Google_Exception $e) {
-					$exceptionMsg = "Google Exception: " . $e->getCode() . "; message: "	. $e->getMessage() . "\n";
-					print($exceptionMsg);
-					$this->logMsg = $this->videoInfo['entry_id'] . ',' . '"' . $this->videoInfo['title'] . '"' . ',' . $this->videoInfo['filename'] . ',' . "File does not exist\n";
-					file_put_contents('completed.csv', $this->logMsg(), FILE_APPEND | LOCK_EX);
-					exit();
-				}
-			}
-
-			fclose($handle);
-
-			// If you want to make other calls after the file upload, set setDefer back to false
-			print $videoInfo['title'] . " uploaded\n";
-			print "https://www.youtube.com/watch?v=" . $status->id . "\n";
-			$this->logMsg = $this->videoInfo['entry_id'] . ',' . '"' . $this->videoInfo['title'] . '"' . ',' . $this->videoInfo['filename'] . ',' . "https://www.youtube.com/watch?v={$status->id}\n";
+	
+	public function uploadChunk() {
+		$this->chunk = fread($this->handle, $this->chunkSizeBytes);
+		$this->status = $this->media->nextChunk($this->chunk); // @todo deal with exception
 	}
 	
-	public function logMsg() {
-		return $this->logMsg;
+	public function setUpProgressBar() {
+		$this->progressBar = new \ProgressBar\Manager(0, $this->filesize);
+	}
+	
+	public function updateProgressBar() {
+		$this->progressBar->update($this->media->getProgress());
+		sleep(1);
 	}
 }

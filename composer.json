@@ -3,7 +3,8 @@
     "description": "Upload all the WSF YouTube videos",
     "require": {
         "google/apiclient": "dev-master",
-        "vlucas/phpdotenv": "1.0.*"
+        "vlucas/phpdotenv": "1.0.*",
+        "guiguiboy/php-cli-progress-bar": "dev-master"
     },
     "license": "MINE",
     "authors": [

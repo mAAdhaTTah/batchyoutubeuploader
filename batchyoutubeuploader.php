@@ -11,7 +11,6 @@ Dotenv::required(array('oauth2_client_id', 'oauth2_client_secret', 'oauth2_redir
 session_start();
 
 $uploader = new Batch_YouTube_Uploader('videos.csv');
-$uploader->login();
-$uploader->process();
+$uploader->batchUpload();
 
 session_unset();
