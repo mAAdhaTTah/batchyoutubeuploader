@@ -102,6 +102,7 @@ class Batch_YouTube_Uploader {
 		// If you want to make other calls after the file upload, set setDefer back to false
 		$this->client->setDefer(false);
 		$this->writeLog();
+		$this->client->refreshToken($_SESSION['token']['refresh_token']);
 	}
 
 	public function upload() {
@@ -128,6 +129,7 @@ class Batch_YouTube_Uploader {
 		$this->client->setClientSecret(getenv('oauth2_client_secret'));
 		$this->client->setRedirectUri(getenv('oauth2_redirect_uri'));
 		$this->client->setScopes($this->scopes);
+		$this->client->setAccessType('offline');
 		// @todo need to check if token is written somewhere and use that if it's still active
 		// For now, we're going to request a new token every time we run the script
 		$authUrl = $this->client->createAuthUrl();
@@ -136,10 +138,7 @@ class Batch_YouTube_Uploader {
 		echo "\nPlease enter the auth code:\n";
 		$authCode = trim(fgets(STDIN));
 
-		$accessToken = $this->client->authenticate($authCode);
-		// @todo write token somewhere for future use?
-		// likely in $_SESSION
-		// @todo get access token that doesn't expire in only an hour
+		$_SESSION['token'] = json_decode($this->client->authenticate($authCode), true);
 	}
 	
 	public function writeLog() {
