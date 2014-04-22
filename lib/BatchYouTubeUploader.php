@@ -149,20 +149,23 @@ class Batch_YouTube_Uploader {
 
 	public function handleUploadError() {
 		switch($this->error->getCode()) {
+			case 500:
+			case 501:
+			case 502:
 			case 503:
-				$this->handle503Error();
+				$this->handle5xxError();
 				break;
 			default:
 				$this->errorOut();
 		}
 	}
 
-	public function handle503Error() {
+	public function handle5xxError() {
 		if($this->n < 5) {
 			usleep((1 << $this->n) * 1000 + rand(0, 1000));
 			$this->n++;
 			try {
-				$this->video->status = $this->video->media->nextChunk($this->chunk);
+				$this->video->status = $this->video->media->nextChunk($this->video->chunk);
 			} catch(Google_Exception $error) {
 				$this->error = $error;
 				$this->handleUploadError();
@@ -173,7 +176,7 @@ class Batch_YouTube_Uploader {
 	}
 
 	public function errorOut() {
-			$exceptionMsg = "Google Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\nStack Trace:\n" . $this->error->getTraceAsString();
+			$exceptionMsg = "\nGoogle Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\nStack Trace:\n" . $this->error->getTraceAsString();
 			print($exceptionMsg);
 			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
 			$this->writeLog();
