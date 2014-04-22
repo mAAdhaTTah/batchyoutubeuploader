@@ -31,8 +31,10 @@ class Batch_YouTube_Uploader {
 		);
 
 	var $video;
-	
-	var $error = false;
+
+	var $error;
+
+	var $n = 0;
 
 	public function __construct($csv) {
 		$this->csv = $csv;
@@ -87,14 +89,14 @@ class Batch_YouTube_Uploader {
 			// Create a snippet with title, description, tags and category ID
 			// Create an asset resource and set its snippet metadata and type.
 			print "Uploading " . $this->video->info['title'] . "\n";
-	
+
 			// Read the media file and upload it chunk by chunk.
 			$this->video->handle = fopen($this->video->path, "rb");
 			$this->video->setUpProgressBar();
 			$this->upload();
 			fclose($this->video->handle);
-	
-			print $this->video->info['title'] . " uploaded\n";
+
+			print "\n" . $this->video->info['title'] . " uploaded\n";
 			print "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
 			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
 		}
@@ -140,28 +142,42 @@ class Batch_YouTube_Uploader {
 
 		$_SESSION['token'] = json_decode($this->client->authenticate($authCode), true);
 	}
-	
+
 	public function writeLog() {
 		file_put_contents($this->logFile, $this->video->logMsg, FILE_APPEND | LOCK_EX);
 	}
-	
+
 	public function handleUploadError() {
 		switch($this->error->getCode()) {
-			// case 401:
-				// $this->login();
-				// maybe do something like this:
-				// $this->resumeUpload();
-				// $this->video->status = $this->video->media->nextChunk($this->video->chunk);
-				// break;
+			case 503:
+				$this->handle503Error();
+				break;
 			default:
-				$exceptionMsg = "Google Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\n";
-				print($exceptionMsg);
-				$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
-				$this->writeLog();
-				print_r($this->error->getErrors()[0]["reason"]);
-				print "\n";
-				$this->error = false;
-				exit();
+				$this->errorOut();
 		}
+	}
+
+	public function handle503Error() {
+		if($this->n < 5) {
+			usleep((1 << $this->n) * 1000 + rand(0, 1000));
+			$this->n++;
+			try {
+				$this->video->status = $this->video->media->nextChunk($this->chunk);
+			} catch(Google_Exception $error) {
+				$this->error = $error;
+				$this->handleUploadError();
+			}
+		} else {
+			$this->errorOut();;
+		}
+	}
+
+	public function errorOut() {
+			$exceptionMsg = "Google Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\nStack Trace:\n" . $this->error->getTraceAsString();
+			print($exceptionMsg);
+			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
+			$this->writeLog();
+			$this->error = false;
+			exit();
 	}
 }
