@@ -114,6 +114,9 @@ class Batch_YouTube_Uploader {
 			} catch(Google_Exception $error) {
 				$this->error = $error;
 				$this->handleUploadError();
+			} catch(Google_IO_Exception $error) {
+				$this->error = $error;
+				$this->handleUploadError();
 			}
 		}
 	}
@@ -148,15 +151,29 @@ class Batch_YouTube_Uploader {
 
 	public function handleUploadError() {
 		switch($this->error->getCode()) {
+			case 410:
+				$this->handle410Error();
 			case 500:
 			case 501:
 			case 502:
 			case 503:
 				$this->handle5xxError();
 				break;
+			case 0:
+				$this->handleIOError();
 			default:
 				$this->errorOut();
 		}
+	}
+	
+	public function handle410Error() {
+		// print error and exit
+		print "A problem has occurred on YouTube's end.\n";
+		print "Please submit your issue and relevant logs to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
+		print "Your video will still be present in your YouTube account, with the upload marked as 'failed'.\n";
+		print "Delete it and restart the upload, and everything should be fine.\n";
+		print_r($this->error);
+		exit;
 	}
 
 	public function handle5xxError() {
@@ -173,13 +190,22 @@ class Batch_YouTube_Uploader {
 			$this->errorOut();;
 		}
 	}
+	
+	public function handleIOError() {
+			$exceptionMsg = "\nGoogle Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\nStack Trace:\n" . $this->error->getTraceAsString();
+			print($exceptionMsg);
+			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
+			$this->writeLog();
+			exit(print_r($this->error));
+			$this->error = null;
+	}
 
 	public function errorOut() {
 			$exceptionMsg = "\nGoogle Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\nStack Trace:\n" . $this->error->getTraceAsString();
 			print($exceptionMsg);
 			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
 			$this->writeLog();
-			$this->error = false;
+			$this->error = null;
 			exit();
 	}
 }
