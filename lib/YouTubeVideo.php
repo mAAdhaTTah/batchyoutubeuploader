@@ -91,9 +91,12 @@ class YouTubeVideo {
 		return 1 * 1024 * 1024;
 	}
 	
-	public function uploadChunk() {
-		$this->chunk = fread($this->handle, $this->chunkSizeBytes);
+	public function uploadChunk($nextChunk = true) {
+		if($nextChunk) {
+			$this->chunk = fread($this->handle, $this->chunkSizeBytes);
+		}
 		$this->status = $this->media->nextChunk($this->chunk);
+		$this->updateProgressBar();
 	}
 	
 	public function setUpProgressBar() {

@@ -110,8 +110,7 @@ class Batch_YouTube_Uploader {
 	public function upload() {
 		while (!$this->video->status && !feof($this->video->handle)) {
 			try {
-				$this->video->uploadChunk();
-				$this->video->updateProgressBar();
+				$this->video->uploadChunk(true);
 			} catch(Google_Exception $error) {
 				$this->error = $error;
 				$this->handleUploadError();
@@ -165,7 +164,7 @@ class Batch_YouTube_Uploader {
 			usleep((1 << $this->n) * 1000 + rand(0, 1000));
 			$this->n++;
 			try {
-				$this->video->status = $this->video->media->nextChunk($this->video->chunk);
+				$this->video->uploadChunk(false);
 			} catch(Google_Exception $error) {
 				$this->error = $error;
 				$this->handleUploadError();
