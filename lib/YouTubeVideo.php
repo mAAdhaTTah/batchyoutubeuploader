@@ -7,23 +7,23 @@ class YouTubeVideo {
 	var $youtube;
 
 	var $path;
-	
+
 	var $youtube_url = false;
-	
+
 	var $logMsg;
-	
+
 	var $chunkSizeBytes;
-	
+
 	var $info;
-	
+
 	var $media;
-	
+
 	var $status = false;
-	
+
 	var $handle;
-	
+
 	var $chunk;
-	
+
 	var $progressBar;
 
 	/**
@@ -37,7 +37,7 @@ class YouTubeVideo {
 	public function __construct($args, $client) {
 		$this->youtube = new Google_Service_YouTube($client);
 		$this->path = getenv('videodir') . '/' . $args['filename'];
-		
+
 		$snippet = new Google_Service_YouTube_VideoSnippet();
 		if(isset($args['title'])) {
 			$snippet->setTitle($args['title']);
@@ -84,13 +84,25 @@ class YouTubeVideo {
 		}
 		$this->info = $args;
 	}
-	
+
 	protected function setChuckSizeBytes() {
 		// @todo How can we set the chuckSize more efficiently?
 		// Is the optimum number calculable?
 		return 1 * 1024 * 1024;
 	}
-	
+
+	public function check() {
+		if(!file_exists($this->path)) {
+			$this->logMsg = $this->info['entry_id'] . ',' . '"' . $this->info['title'] . '"' . ',' . $this->info['filename'] . ',' . "File not found\n";
+			return false;
+		}
+		if(!empty($this->youtube_url)) {
+			$this->logMsg = $this->info['entry_id'] . ',' . '"' . $this->info['title'] . '"' . ',' . $this->info['filename'] . ',' . $this->info['youtube_url'] . "\n";
+			return false;
+		}
+		return true;
+	}
+
 	public function uploadChunk($nextChunk = true) {
 		if($nextChunk) {
 			$this->chunk = fread($this->handle, $this->chunkSizeBytes);
@@ -98,11 +110,11 @@ class YouTubeVideo {
 		$this->status = $this->media->nextChunk($this->chunk);
 		$this->updateProgressBar();
 	}
-	
+
 	public function setUpProgressBar() {
 		$this->progressBar = new \ProgressBar\Manager(0, $this->filesize);
 	}
-	
+
 	public function updateProgressBar() {
 		$this->progressBar->update($this->media->getProgress());
 		sleep(1);
