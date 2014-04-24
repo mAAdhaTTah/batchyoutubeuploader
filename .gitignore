@@ -1,4 +1,5 @@
 /vendor/
 /.env
-output.log
-/completed.csv
+errors.log
+/videos
+video.csv

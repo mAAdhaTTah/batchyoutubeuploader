@@ -4,55 +4,103 @@ class YouTubeVideo {
 	/**
 	 * YouTube client
 	 */
-	var $youtube;
+	protected $youtube;
 
-	var $path;
+	/**
+	 * Video attributes (from csv)
+	 */
+	protected $filename;
+	protected $title;
+	protected $description;
+	protected $categoryID;
+	protected $tags;
+	protected $privacyStatus;
+	protected $url;
+	protected $uploadStatus;
 
-	var $youtube_url = false;
+	/**
+	 * Chunk size per upload
+	 */
+	protected $chunkSizeBytes;
 
-	var $logMsg;
+	/**
+	 * Size of the file to upload
+	 */
+	protected $filesize;
 
-	var $chunkSizeBytes;
+	/**
+	 * Path of the file to upload
+	 */
+	protected $path;
 
-	var $info;
+	/**
+	 * Google_Http_MediaFileUpload object
+	 */
+	protected $media;
 
-	var $media;
+	/**
+	 * Result of previous upload
+	 */
+	var $status;
 
-	var $status = false;
-
+	/**
+	 * Handle for file pointer
+	 */
 	var $handle;
 
-	var $chunk;
+	/**
+	 * Next file chunk to be uploaded
+	 */
+	protected $chunk;
 
+	/**
+	 * ProgressBar Manger object
+	 */
 	var $progressBar;
 
 	/**
-	 * __contruct function.
+	 * Construct the video object
 	 *
 	 * @access public
 	 * @param array $args
-	 * @param obj $client Google Client
-	 * @param obj $youtube YouTube Client
+	 * @param Google_Client $client
 	 */
-	public function __construct($args, $client) {
+	public function __construct(array $args, Google_Client $client) {
 		$this->youtube = new Google_Service_YouTube($client);
-		$this->path = getenv('videodir') . '/' . $args['filename'];
+		foreach($args as $key => $value) {
+			$this->$key = $value;
+		}
 
+		$this->path = getenv('videodir') . '/' . $this->filename;
+		$this->filesize = filesize($this->path);
+
+		$this->setUpClient();
+	}
+
+	/**
+	 * Set up the upload client
+	 *
+	 * @access protected
+	 */
+	protected function setUpClient() {
 		$snippet = new Google_Service_YouTube_VideoSnippet();
-		if(isset($args['title'])) {
-			$snippet->setTitle($args['title']);
+		if(isset($this->title)) {
+			$snippet->setTitle($this->title);
 		}
-		if(isset($args['description'])) {
-		// $snippet->setDescription($videoArg['description']);
+		if(isset($this->description)) {
+			$snippet->setDescription($this->description);
 		}
-		// if(isset($args['categoryID'])) {
-			$snippet->setCategoryId("28"); // @todo make this selectable in some way; 28 = Science & Technology
-		// }
+		if(isset($this->categoryID)) {
+			$snippet->setCategoryId($this->categoryID);
+		}
+		if(isset($this->tags)) {
+			$snippet->setCategoryId($this->tags); // @todo the comma separated list needs to be turned into an array
+		}
 		$status = new Google_Service_YouTube_VideoStatus();
-		if(isset($args['privacyStatus'])) {
-			$status->privacyStatus = $args['privacyStatus'];
+		if(isset($this->privacyStatus)) {
+			$status->privacyStatus = $this->privacyStatus;
 		} else {
-			$status->privacyStatus = "unlisted";
+			$status->privacyStatus = "private";
 		}
 		// Associate the snippet and status objects with a new video resource.
 		$video = new Google_Service_YouTube_Video();
@@ -76,33 +124,137 @@ class YouTubeVideo {
 			true,
 			$this->chunkSizeBytes
 			);
-		$this->filesize = filesize($this->path);
 		$this->media->setFileSize($this->filesize);
-
-		if(isset($args['youtube_url'])) {
-			$this->youtube_url = $args['youtube_url'];
-		}
-		$this->info = $args;
 	}
 
+	/**
+	 * Set the size of the file chunk for each upload
+	 * Currently static, but can be caluclated later
+	 *
+	 * @access protected
+	 * @return int
+	 */
 	protected function setChuckSizeBytes() {
 		// @todo How can we set the chuckSize more efficiently?
 		// Is the optimum number calculable?
 		return 1 * 1024 * 1024;
 	}
 
-	public function check() {
+	/**
+	 * Return the filename.
+	 * 
+	 * @access protected
+	 * @return string $filename
+	 */
+	protected function getFilename() {
+		return $this->filename;
+	}
+
+	/**
+	 * Return the title
+	 *
+	 * @access public
+	 * @return string $title
+	 */
+	public function getTitle() {
+		return $this->title;
+	}
+	
+	/**
+	 * Return the description
+	 *
+	 * @access public
+	 * @return string $description
+	 */
+	public function getDescription() {
+		return $this->description;
+	}
+	
+	/**
+	 * Return the categoryID
+	 *
+	 * @access public
+	 * @return string $categoryID
+	 */
+	public function getCategoryID() {
+		return $this->categoryID;
+	}
+	
+	/**
+	 * Return the tags
+	 *
+	 * @access public
+	 * @return string $tags
+	 */
+	public function getTags() {
+		return $this->tags;
+	}
+	
+	/**
+	 * Return the privacyStatus
+	 *
+	 * @access public
+	 * @return string $privacyStatus
+	 */
+	public function getPrivacyStatus() {
+		return $this->privacyStatus;
+	}
+	
+	/**
+	 * Return the url
+	 *
+	 * @access public
+	 * @return string $url
+	 */
+	public function getUrl() {
+		return $this->url;
+	}
+	
+	/**
+	 * Return the uploadStatus
+	 *
+	 * @access public
+	 * @return string $uploadStatus
+	 */
+	public function getUploadStatus() {
+		return $this->uploadStatus;
+	}
+
+	/**
+	 * Check whether a file can + should be uploaded
+	 *
+	 * @access public
+	 * @return bool
+	 */
+	public function checkStatus() {
 		if(!file_exists($this->path)) {
-			$this->logMsg = $this->info['entry_id'] . ',' . '"' . $this->info['title'] . '"' . ',' . $this->info['filename'] . ',' . "File not found\n";
+			$this->uploadStatus = "File not found";
 			return false;
 		}
-		if(!empty($this->youtube_url)) {
-			$this->logMsg = $this->info['entry_id'] . ',' . '"' . $this->info['title'] . '"' . ',' . $this->info['filename'] . ',' . $this->info['youtube_url'] . "\n";
+		if($this->uploadStatus == "uploaded") {
 			return false;
 		}
 		return true;
 	}
 
+	/**
+	 * Set up object before upload
+	 * Open the file and set up the progress bar
+	 *
+	 * @access public
+	 */
+	public function setUp() {
+		$this->handle = fopen($this->path, "rb");
+		$this->progressBar = new \ProgressBar\Manager(0, $this->filesize);
+	}
+
+	/**
+	 * Upload a file chunk
+	 * Can be set to false to retry previous chunk
+	 *
+	 * @access public
+	 * @param bool $nextChunk (default: true)
+	 */
 	public function uploadChunk($nextChunk = true) {
 		if($nextChunk) {
 			$this->chunk = fread($this->handle, $this->chunkSizeBytes);
@@ -111,12 +263,24 @@ class YouTubeVideo {
 		$this->updateProgressBar();
 	}
 
-	public function setUpProgressBar() {
-		$this->progressBar = new \ProgressBar\Manager(0, $this->filesize);
-	}
-
-	public function updateProgressBar() {
+	/**
+	 * Update the progress bar to the latest progress
+	 *
+	 * @access protected
+	 */
+	protected function updateProgressBar() {
 		$this->progressBar->update($this->media->getProgress());
 		sleep(1);
+	}
+
+	/**
+	 * Clean up after a video has been uploaded.
+	 *
+	 * @access public
+	 */
+	public function finish() {
+		fclose($this->handle);
+		$successMsg = "\n" . $this->getTitle() . " uploaded\n";
+		print $successMsg;
 	}
 }

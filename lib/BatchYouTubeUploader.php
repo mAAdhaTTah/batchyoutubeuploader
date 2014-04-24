@@ -11,6 +11,8 @@ class Batch_YouTube_Uploader {
 	 * The directory the videos are stored in
 	 */
 	var $videoDir;
+	
+	var $handle;
 
 	/**
 	 * Google client
@@ -30,13 +32,6 @@ class Batch_YouTube_Uploader {
 	 * Current video object
 	 */
 	protected $video;
-
-	/**
-	 * Logfile output
-	 * Currently, we're writing to a new file
-	 * @todo write back to input file, use this as actual log
-	 */
-	protected $logFile = 'completed.csv';
 
 	/**
 	 * Current Exception object
@@ -65,11 +60,11 @@ class Batch_YouTube_Uploader {
 		ini_set('auto_detect_line_endings',TRUE);
 		// Check if we can actually work on the file
 		if(!file_exists($this->csv) || !is_readable($this->csv))
-			throw new Exception("File doesn't exist or can't be found.");
+			throw new Exception("Videos.csv doesn't exist or can't be found.");
 
 		$header = NULL;
 		$data = array();
-		if (($handle = fopen($this->csv, 'r')) !== FALSE) {
+		if (($this->handle = fopen($this->csv, 'r')) !== FALSE) {
 			while (($row = fgetcsv($handle, 1000, ',')) !== FALSE) {
 				if (!$header) {
 					// Set first row as header
@@ -85,53 +80,12 @@ class Batch_YouTube_Uploader {
 					}
 					// Pass final assoc array for processing
 					$this->processVideo(array_combine($header, $row));
+					$this->writeResults();
 				}
 			}
 			// Finish up
-			fclose($handle);
+			fclose($this->handle);
 		}
-	}
-
-	/**
-	 * Proces video, based on the array of info pulled from csv
-	 *
-	 * @access public
-	 * @param mixed $args
-	 * @return void
-	 */
-	public function processVideo($args) {
-		// Setting the defer flag to true tells the client to return a request which can be called
-		// with ->execute(); instead of making the API call immediately.
-		$this->client->setDefer(true);
-		$this->video = new YouTubeVideo($args, $this->client);
-
-		// Check if video''s file exists or if it's been uploaded already
-		if ($this->video->check()) {
-			print "Uploading " . $this->video->info['title'] . "\n";
-
-			// Read the media file and upload it chunk by chunk.
-			$this->video->handle = fopen($this->video->path, "rb");
-			$this->video->setUpProgressBar();
-			$this->upload();
-			fclose($this->video->handle);
-
-			$this->success();
-		}
-
-		// If you want to make other calls after the file upload, set setDefer back to false
-		$this->client->setDefer(false);
-		$this->writeLog();
-
-		// For now, we're refreshing the token after every upload. YouTube's API
-		// currently has a bug, where uploads fail if the token expires in the
-		// middle of the upload. It should continue until the upload finishes. What
-		// we should do is check and if necesary, refresh the token before each
-		// upload We can't do it this way because the video that's getting uploaded
-		// at the 1 hour mark will fail. When this bug gets fixed, we should put this
-		// at the beginning of processVideo():
-		// if($this->client->isAccessTokenExpired() {
-		$this->client->refreshToken($_SESSION['token']['refresh_token']);
-		// }
 	}
 
 	/**
@@ -163,6 +117,55 @@ class Batch_YouTube_Uploader {
 	}
 
 	/**
+	 * Proces video, based on the array of info pulled from csv
+	 *
+	 * @access public
+	 * @param array $args
+	 */
+	public function processVideo(array $args) {
+		// Setting the defer flag to true tells the client to return a request which can be called
+		// with ->execute(); instead of making the API call immediately.
+		$this->client->setDefer(true);
+		$this->video = new YouTubeVideo($args, $this->client);
+
+		// Check if video file exists or if it's been uploaded already
+		if ($this->video->checkStatus()) {
+			print "Uploading " . $this->video->getTitle() . "\n";
+
+			// Read the media file and upload it chunk by chunk.
+			$this->video->setUp();
+			$this->upload();
+			$this->video->finish();
+		}
+
+		// If you want to make other calls after the file upload, set setDefer back to false
+		$this->client->setDefer(false);
+
+		// For now, we're refreshing the token after every upload. YouTube's API
+		// currently has a bug, where uploads fail if the token expires in the
+		// middle of the upload. It should continue until the upload finishes, and what
+		// we should do is check and if necesary, refresh the token before each
+		// upload. We can't do it this way because the video that's getting uploaded
+		// at the 1 hour mark will fail. When this bug gets fixed, we should put this
+		// at the beginning of processVideo():
+		// if($this->client->isAccessTokenExpired() {
+		$this->client->refreshToken($_SESSION['token']['refresh_token']);
+		// }
+	}
+	
+	protected function writeResults() {
+		$results = array($this->video->getFilename(),
+		                 $this->video->getTitle(),
+		                 $this->video->getDescription(),
+		                 $this->video->getCategoryID(),
+		                 $this->video->getTags(),
+		                 $this->video->getPrivacyStatus(),
+		                 $this->video->getUrl(),
+		                 $this->video->getUploadStatus());
+		fputcsv($this->handle, $results);
+	}
+
+	/**
 	 * Upload the video.
 	 *
 	 * @access protected
@@ -179,15 +182,6 @@ class Batch_YouTube_Uploader {
 				$this->handleIOError();
 			}
 		}
-	}
-
-	/**
-	 * Write the current $logMsg to the $logfile
-	 *
-	 * @access protected
-	 */
-	protected function writeLog() {
-		file_put_contents($this->logFile, $this->video->logMsg, FILE_APPEND | LOCK_EX);
 	}
 
 	/**
@@ -223,7 +217,6 @@ class Batch_YouTube_Uploader {
 		print "Please submit your issue and relevant logs to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
 		print "Your video will still be present in your YouTube account, with the upload marked as 'failed'.\n";
 		print "Delete it and restart the upload, and everything should be fine.\n";
-		print_r($this->error);
 		exit;
 	}
 
@@ -234,8 +227,11 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function handle5xxError() {
 		if($this->n < 5) {
-			print "\nGoogle Exception:\n" . $this->error->getCode() . "\nMessage:\n"	. $this->error->getMessage() . "\n";
-			print "Error #" . $this->n+1 . "\n";
+			print "\nGoogle Exception:\n";
+			print $this->error->getCode();
+			print "\nMessage:\n";
+			print $this->error->getMessage();
+			print "\nError #" . $this->n+1 . "\n";
 			$sleepTime = (1 << $this->n) * 1000 + rand(0, 1000);
 			print "Sleeping for " . $sleepTime . "s\n";
 			usleep($sleepTime);
@@ -246,6 +242,9 @@ class Batch_YouTube_Uploader {
 			} catch(Google_Exception $error) {
 				$this->error = $error;
 				$this->handleUploadError();
+			} catch(Google_IO_Exception $error) {
+				$this->error = $error;
+				$this->handleIOError();
 			}
 		} else {
 			$this->errorOut();;
@@ -260,8 +259,6 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function handleIOError() {
 			print($this->standardErrorMsg());
-			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
-			$this->writeLog();
 			exit(print_r($this->error));
 	}
 
@@ -272,8 +269,6 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function errorOut() {
 			print($this->standardErrorMsg());
-			$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "Upload failed\n";
-			$this->writeLog();
 			exit();
 	}
 
@@ -284,24 +279,12 @@ class Batch_YouTube_Uploader {
 	 * @return void
 	 */
 	protected function standardErrorMsg() {
-			$errorMsg .= "\nGoogle Exception:\n";
+			$errorMsg = "\nGoogle Exception:\n";
 			$errorMsg .= $this->error->getCode();
 			$errorMsg .= "\nMessage:\n";
 			$errorMsg	.= $this->error->getMessage();
 			$errorMsg .= "\nStack Trace:\n";
 			$errorMsg .= $this->error->getTraceAsString();
 			return $errorMsg;
-	}
-
-	/**
-	 * Message and logging on upload completion
-	 *
-	 * @access protected
-	 */
-	protected function success() {
-		$successMsg .= "\n" . $this->video->info['title'] . " uploaded\n";
-		$successMsg .= "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
-		print $successMsg;
-		$this->video->logMsg = $this->video->info['entry_id'] . ',' . '"' . $this->video->info['title'] . '"' . ',' . $this->video->info['filename'] . ',' . "https://www.youtube.com/watch?v=" . $this->video->status->id . "\n";
 	}
 }
