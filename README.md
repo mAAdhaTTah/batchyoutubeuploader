@@ -12,7 +12,8 @@
 	* Get your client ID and secret from the [Google Developer Console][1]
 4. Fill out videos.csv with the information required for each file
 	* The tags should be comma-seperated
-5. Run `php batchyoutubeuploader.php` and login
+5. Place all the video files you want to upload in the `videos` folder.
+6. Run `php batchyoutubeuploader.php` and login
 
 ## Bugs
 
