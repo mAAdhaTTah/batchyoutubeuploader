@@ -72,7 +72,7 @@ class Batch_YouTube_Uploader {
 		$this->login();
 
 		print("Begin uploading videos...\n");
-		while($this->csv->data[$this->x]) {
+		while(isset($this->csv->data[$this->x]) || array_key_exists($this->x, $this->csv->data)) {
 			$this->processVideo($this->csv->data[$this->x]);
 			$this->writeResults();
 			$this->x++;
@@ -214,6 +214,8 @@ class Batch_YouTube_Uploader {
 		print "Please submit your issue and relevant logs (if any) to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
 		print "Your video will still be present in your YouTube account, with the upload marked as 'failed'.\n";
 		print "Delete it and restart the upload, and everything should be fine.\n";
+		$this->video->failure();
+		$this->writeResults();
 		exit;
 	}
 
@@ -277,7 +279,7 @@ class Batch_YouTube_Uploader {
 	 * Our standard error message before exiting
 	 *
 	 * @access protected
-	 * @return void
+	 * @return string $errorMsg
 	 */
 	protected function standardErrorMsg() {
 			$errorMsg = "\nGoogle Exception:\n";
