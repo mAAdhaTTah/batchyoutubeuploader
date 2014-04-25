@@ -56,7 +56,7 @@ class YouTubeVideo {
 	/**
 	 * ProgressBar Manger object
 	 */
-	var $progressBar;
+	protected $progressBar;
 
 	/**
 	 * Construct the video object
@@ -66,7 +66,6 @@ class YouTubeVideo {
 	 * @param Google_Client $client
 	 */
 	public function __construct(array $args, Google_Client $client) {
-		$this->youtube = new Google_Service_YouTube($client);
 		foreach($args as $key => $value) {
 			$this->$key = $value;
 		}
@@ -74,7 +73,8 @@ class YouTubeVideo {
 		$this->path = getenv('videodir') . '/' . $this->filename;
 		$this->filesize = filesize($this->path);
 
-		$this->setUpClient();
+		$this->setUpClient($client);
+		
 	}
 
 	/**
@@ -82,7 +82,8 @@ class YouTubeVideo {
 	 *
 	 * @access protected
 	 */
-	protected function setUpClient() {
+	protected function setUpClient(Google_Client $client) {
+		$this->youtube = new Google_Service_YouTube($client);
 		$snippet = new Google_Service_YouTube_VideoSnippet();
 		if(isset($this->title)) {
 			$snippet->setTitle($this->title);
@@ -94,7 +95,8 @@ class YouTubeVideo {
 			$snippet->setCategoryId($this->categoryID);
 		}
 		if(isset($this->tags)) {
-			$snippet->setCategoryId($this->tags); // @todo the comma separated list needs to be turned into an array
+			$tags = array_map('trim', explode(',', $this->tags));
+			$snippet->setTags($tags);
 		}
 		$status = new Google_Service_YouTube_VideoStatus();
 		if(isset($this->privacyStatus)) {

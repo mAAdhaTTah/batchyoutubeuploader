@@ -12,7 +12,15 @@ class Batch_YouTube_Uploader {
 	 */
 	var $videoDir;
 	
-	var $handle;
+	/**
+	 * Logger object
+	 */
+	var $logger;
+
+	/**
+	 * Video csv handle
+	 */
+	protected $handle;
 
 	/**
 	 * Google client
@@ -46,6 +54,7 @@ class Batch_YouTube_Uploader {
 	public function __construct($csv) {
 		$this->csv = $csv;
 		$this->videoDir = getenv('videodir');
+		// $this->logger = new Katzgrau\KLogger\Logger(__DIR__.'output.log');
 	}
 
 	/**
@@ -65,7 +74,7 @@ class Batch_YouTube_Uploader {
 		$header = NULL;
 		$data = array();
 		if (($this->handle = fopen($this->csv, 'r')) !== FALSE) {
-			while (($row = fgetcsv($handle, 1000, ',')) !== FALSE) {
+			while (($row = fgetcsv($this->handle, 1000, ',')) !== FALSE) {
 				if (!$header) {
 					// Set first row as header
 					$header = $row;
@@ -152,7 +161,7 @@ class Batch_YouTube_Uploader {
 		$this->client->refreshToken($_SESSION['token']['refresh_token']);
 		// }
 	}
-	
+
 	protected function writeResults() {
 		$results = array($this->video->getFilename(),
 		                 $this->video->getTitle(),
@@ -214,7 +223,7 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function handle410Error() {
 		print "A problem has occurred on YouTube's end.\n";
-		print "Please submit your issue and relevant logs to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
+		print "Please submit your issue and relevant logs (if any) to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
 		print "Your video will still be present in your YouTube account, with the upload marked as 'failed'.\n";
 		print "Delete it and restart the upload, and everything should be fine.\n";
 		exit;
@@ -258,8 +267,8 @@ class Batch_YouTube_Uploader {
 	 * @todo can we do anything to handle this better?
 	 */
 	protected function handleIOError() {
-			print($this->standardErrorMsg());
-			exit(print_r($this->error));
+		print($this->standardErrorMsg());
+		exit;
 	}
 
 	/**
@@ -268,8 +277,8 @@ class Batch_YouTube_Uploader {
 	 * @access protected
 	 */
 	protected function errorOut() {
-			print($this->standardErrorMsg());
-			exit();
+		print($this->standardErrorMsg());
+		exit;
 	}
 
 	/**
