@@ -144,7 +144,7 @@ class Batch_YouTube_Uploader {
 			// Read the media file and upload it chunk by chunk.
 			$this->video->setUp();
 			$this->upload();
-			$this->video->finish();
+			$this->video->success();
 		}
 
 		// If you want to make other calls after the file upload, set setDefer back to false
@@ -268,6 +268,8 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function handleIOError() {
 		print($this->standardErrorMsg());
+		$this->video->failure();
+		$this->writeResults();
 		exit;
 	}
 
@@ -278,6 +280,8 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function errorOut() {
 		print($this->standardErrorMsg());
+		$this->video->failure();
+		$this->writeResults();
 		exit;
 	}
 

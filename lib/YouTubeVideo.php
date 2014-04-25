@@ -280,9 +280,16 @@ class YouTubeVideo {
 	 *
 	 * @access public
 	 */
-	public function finish() {
+	public function success() {
 		fclose($this->handle);
 		$successMsg = "\n" . $this->getTitle() . " uploaded\n";
+		$this->url = "https://www.youtube.com/watch?v={$this->status->id}";
+		$this->uploadStatus = "uploaded";
 		print $successMsg;
+	}
+	
+	public function failure() {
+		fclose($this->handle);
+		$this->uploadStatus = "Upload failed";
 	}
 }
