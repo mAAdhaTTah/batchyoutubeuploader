@@ -74,7 +74,6 @@ class YouTubeVideo {
 		$this->filesize = filesize($this->path);
 
 		$this->setUpClient($client);
-		
 	}
 
 	/**
@@ -144,11 +143,11 @@ class YouTubeVideo {
 
 	/**
 	 * Return the filename.
-	 * 
+	 *
 	 * @access protected
 	 * @return string $filename
 	 */
-	protected function getFilename() {
+	public function getFilename() {
 		return $this->filename;
 	}
 
@@ -161,7 +160,7 @@ class YouTubeVideo {
 	public function getTitle() {
 		return $this->title;
 	}
-	
+
 	/**
 	 * Return the description
 	 *
@@ -171,7 +170,7 @@ class YouTubeVideo {
 	public function getDescription() {
 		return $this->description;
 	}
-	
+
 	/**
 	 * Return the categoryID
 	 *
@@ -181,7 +180,7 @@ class YouTubeVideo {
 	public function getCategoryID() {
 		return $this->categoryID;
 	}
-	
+
 	/**
 	 * Return the tags
 	 *
@@ -191,7 +190,7 @@ class YouTubeVideo {
 	public function getTags() {
 		return $this->tags;
 	}
-	
+
 	/**
 	 * Return the privacyStatus
 	 *
@@ -201,7 +200,7 @@ class YouTubeVideo {
 	public function getPrivacyStatus() {
 		return $this->privacyStatus;
 	}
-	
+
 	/**
 	 * Return the url
 	 *
@@ -211,7 +210,7 @@ class YouTubeVideo {
 	public function getUrl() {
 		return $this->url;
 	}
-	
+
 	/**
 	 * Return the uploadStatus
 	 *
@@ -287,9 +286,9 @@ class YouTubeVideo {
 		$this->uploadStatus = "uploaded";
 		print $successMsg;
 	}
-	
+
 	public function failure() {
 		fclose($this->handle);
-		$this->uploadStatus = "Upload failed";
+		$this->uploadStatus = "upload failed";
 	}
 }

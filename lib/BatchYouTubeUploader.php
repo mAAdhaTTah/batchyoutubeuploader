@@ -11,7 +11,7 @@ class Batch_YouTube_Uploader {
 	 * The directory the videos are stored in
 	 */
 	var $videoDir;
-	
+
 	/**
 	 * Logger object
 	 */
@@ -47,12 +47,17 @@ class Batch_YouTube_Uploader {
 	protected $error;
 
 	/**
-	 * number of 5xx errors experienced
+	 * Number of 5xx errors experienced
 	 */
 	protected $n = 0;
 
+	/**
+	 * Which video we're currently uploading
+	 */
+	protected $x = 0;
+
 	public function __construct($csv) {
-		$this->csv = $csv;
+		$this->csv = new parseCSV($csv);
 		$this->videoDir = getenv('videodir');
 		// $this->logger = new Katzgrau\KLogger\Logger(__DIR__.'output.log');
 	}
@@ -66,34 +71,11 @@ class Batch_YouTube_Uploader {
 		// Login Google client and get access to YouTube
 		$this->login();
 
-		ini_set('auto_detect_line_endings',TRUE);
-		// Check if we can actually work on the file
-		if(!file_exists($this->csv) || !is_readable($this->csv))
-			throw new Exception("Videos.csv doesn't exist or can't be found.");
-
-		$header = NULL;
-		$data = array();
-		if (($this->handle = fopen($this->csv, 'r')) !== FALSE) {
-			while (($row = fgetcsv($this->handle, 1000, ',')) !== FALSE) {
-				if (!$header) {
-					// Set first row as header
-					$header = $row;
-					print("Begin uploading videos...\n");
-				} else {
-					if (count($header) > count($row)) {
-						// Add extra values to match the header
-						$difference = count($header) - count($row);
-						for ($i = 1; $i <= $difference; $i++) {
-							$row[count($row) + 1] = ',';
-						}
-					}
-					// Pass final assoc array for processing
-					$this->processVideo(array_combine($header, $row));
-					$this->writeResults();
-				}
-			}
-			// Finish up
-			fclose($this->handle);
+		print("Begin uploading videos...\n");
+		while($this->csv->data[$this->x]) {
+			$this->processVideo($this->csv->data[$this->x]);
+			$this->writeResults();
+			$this->x++;
 		}
 	}
 
@@ -162,6 +144,11 @@ class Batch_YouTube_Uploader {
 		// }
 	}
 
+	/**
+	 * Writes the csv file after each upload has completed
+	 *
+	 * @access protected
+	 */
 	protected function writeResults() {
 		$results = array($this->video->getFilename(),
 		                 $this->video->getTitle(),
@@ -171,7 +158,8 @@ class Batch_YouTube_Uploader {
 		                 $this->video->getPrivacyStatus(),
 		                 $this->video->getUrl(),
 		                 $this->video->getUploadStatus());
-		fputcsv($this->handle, $results);
+		$this->csv->data[$this->x] = $results;
+		$this->csv->save();
 	}
 
 	/**
