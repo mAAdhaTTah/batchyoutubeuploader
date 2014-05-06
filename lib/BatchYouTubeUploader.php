@@ -104,7 +104,7 @@ class Batch_YouTube_Uploader {
 		// Save the token into to the session
 		$_SESSION['token'] = json_decode($this->client->authenticate($authCode), true);
 		// @todo write token somewhere so we can reuse it
-		// we don't have to log in every time we run the script
+		// so we don't have to log in every time we run the script
 	}
 
 	/**
@@ -114,6 +114,10 @@ class Batch_YouTube_Uploader {
 	 * @param array $args
 	 */
 	public function processVideo(array $args) {
+		// Check if token is expired and refresh if it is
+		if($this->client->isAccessTokenExpired()) {
+			$this->client->refreshToken($_SESSION['token']['refresh_token']);
+		}
 		// Setting the defer flag to true tells the client to return a request which can be called
 		// with ->execute(); instead of making the API call immediately.
 		$this->client->setDefer(true);
@@ -131,17 +135,6 @@ class Batch_YouTube_Uploader {
 
 		// If you want to make other calls after the file upload, set setDefer back to false
 		$this->client->setDefer(false);
-
-		// For now, we're refreshing the token after every upload. YouTube's API
-		// currently has a bug, where uploads fail if the token expires in the
-		// middle of the upload. It should continue until the upload finishes, and what
-		// we should do is check and if necesary, refresh the token before each
-		// upload. We can't do it this way because the video that's getting uploaded
-		// at the 1 hour mark will fail. When this bug gets fixed, we should put this
-		// at the beginning of processVideo():
-		// if($this->client->isAccessTokenExpired() {
-		$this->client->refreshToken($_SESSION['token']['refresh_token']);
-		// }
 	}
 
 	/**
