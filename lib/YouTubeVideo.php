@@ -85,6 +85,13 @@ class YouTubeVideo {
 		$this->youtube = new Google_Service_YouTube($client);
 		$snippet = new Google_Service_YouTube_VideoSnippet();
 		if(isset($this->title)) {
+			// Titles can't be more than 100 characters or the upload fails
+			if(mb_strlen($this->title, 'UTF-8') > 100) {
+				print("Titles much be under 100 characters. Trimmming...\n");
+				$this->title = mb_substr($this->title, 0, 100 - 3, 'UTF-8') . '...';
+				print("New title: {$this->title}\n");
+			}
+
 			$snippet->setTitle($this->title);
 		}
 		if(isset($this->description)) {
