@@ -34,7 +34,7 @@ class Batch_YouTube_Uploader {
 		'https://www.googleapis.com/auth/youtube',
 		'https://www.googleapis.com/auth/youtube.upload',
 		'https://www.googleapis.com/auth/youtubepartner'
-		);
+	);
 
 	/**
 	 * Current video object
@@ -59,7 +59,6 @@ class Batch_YouTube_Uploader {
 	public function __construct($csv) {
 		$this->csv = new parseCSV($csv);
 		$this->videoDir = getenv('videodir');
-		// $this->logger = new Katzgrau\KLogger\Logger(__DIR__.'output.log');
 	}
 
 	/**
@@ -71,7 +70,7 @@ class Batch_YouTube_Uploader {
 		// Login Google client and get access to YouTube
 		$this->login();
 
-		print("Begin uploading videos...\n");
+		print("\nBegin uploading videos...\n");
 		while(isset($this->csv->data[$this->x]) || array_key_exists($this->x, $this->csv->data)) {
 			$this->processVideo($this->csv->data[$this->x]);
 			$this->writeResults();
@@ -125,7 +124,7 @@ class Batch_YouTube_Uploader {
 
 		// Check if video file exists or if it's been uploaded already
 		if ($this->video->checkStatus()) {
-			print "Uploading " . $this->video->getTitle() . "\n";
+			print "\nUploading " . $this->video->getTitle() . "\n";
 
 			// Read the media file and upload it chunk by chunk.
 			$this->video->setUp();
@@ -181,6 +180,9 @@ class Batch_YouTube_Uploader {
 	 */
 	protected function handleUploadError() {
 		switch($this->error->getCode()) {
+			case 0:
+				$this->handleTimeoutError();
+				break;
 			case 410:
 				$this->handle410Error();
 				break;
@@ -197,16 +199,37 @@ class Batch_YouTube_Uploader {
 	}
 
 	/**
+	 * Retries on timeout errors
+	 *
+	 * @access protected
+	 */
+	protected function handleTimeoutError() {
+		print "\nError: ";
+		print $this->error->getMessage();
+		sleep(5);
+		try {
+			print "\nRetrying...\n";
+			$this->video->uploadChunk(false);
+		} catch(Google_Exception $error) {
+			$this->error = $error;
+			$this->handleUploadError();
+		} catch(Google_IO_Exception $error) {
+			$this->error = $error;
+			$this->handleIOError();
+		}
+	}
+
+	/**
 	 * Handles 410 errors
 	 *
 	 * @access protected
 	 * @todo can we do anything to handle this better?
 	 */
 	protected function handle410Error() {
-		print "A problem has occurred on YouTube's end.\n";
-		print "Please submit your issue and relevant logs (if any) to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
-		print "Your video will still be present in your YouTube account, with the upload marked as 'failed'.\n";
-		print "Delete it and restart the upload, and everything should be fine.\n";
+		print "\nA problem has occurred on YouTube's end.\n";
+		print "\nPlease submit your issue and relevant logs (if any) to https://github.com/mAAdhaTTah/batchyoutubeuploader/issues\n";
+		print "\nYour video will still be present in your YouTube account, with the upload marked as 'failed'.\n";
+		print "\nDelete it and restart the upload, and everything should be fine.\n";
 		$this->video->failure();
 		$this->writeResults();
 		exit;
@@ -218,18 +241,18 @@ class Batch_YouTube_Uploader {
 	 * @access protected
 	 */
 	protected function handle5xxError() {
-		if($this->n < 5) {
+		if($this->n < 10) {
 			print "\nGoogle Exception:\n";
 			print $this->error->getCode();
 			print "\nMessage:\n";
 			print $this->error->getMessage();
-			print "\nError #" . $this->n+1 . "\n";
+			print "\nError #: " . ($this->n + 1);
 			$sleepTime = (1 << $this->n) * 1000 + rand(0, 1000);
-			print "Sleeping for " . $sleepTime . "s\n";
+			print "\nSleeping for " . $sleepTime . "µs";
 			usleep($sleepTime);
 			$this->n++;
 			try {
-				print "Retrying...";
+				print "\nRetrying...\n";
 				$this->video->uploadChunk(false);
 			} catch(Google_Exception $error) {
 				$this->error = $error;
